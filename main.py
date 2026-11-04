@@ -1,2 +1,4 @@
-#Primeiro push rafa
-#Primeiro push carla
+import requests
+import re
+
+api = "https://wger.de/api/v2/"
