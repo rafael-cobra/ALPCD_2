@@ -26,4 +26,18 @@ def load_data():
                 print(f"Error consulting the dataset: {error}")
         with cache_file.open("w", encoding="utf-8") as file:
             json.dump(cache, file, ensure_ascii=False, indent=2)
-        
+            
+def list_n_ex():
+    pass
+
+def search_musc_cat_list():
+    pass
+
+def extract_type_id():
+    pass
+
+def count_equipment():
+    pass
+
+def personal_workout():
+    pass
