@@ -28,16 +28,16 @@ def load_data():
             json.dump(cache, file, ensure_ascii=False, indent=2)
             
 def list_n_ex():
-    pass
+    return
 
 def search_musc_cat_list():
-    pass
+    return
 
 def extract_type_id():
-    pass
+    return
 
 def count_equipment():
-    pass
+    return
 
 def personal_workout():
-    pass
+    return
