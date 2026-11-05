@@ -11,14 +11,14 @@ def load_data(opcao):
             cache = json.load(file)
     else:
         api = f"https://wger.de/api/v2/{opcao}"
-        params = {"limit": 0, "offset": 0}
-        cache = {"dataset_id": opcao, "total_count": 0, "results": []}
-        while params["offset"] < cache["total_count"] or params["offset"] == 0:
+        params = {"limit": 186, "offset": 0}
+        cache = {"count": 0, "results": []}
+        while params["offset"] < cache["count"] or params["offset"] == 0:
             try:
                 response = requests.get(api, params=params)
                 response.raise_for_status()
                 page = response.json()
-                cache["total_count"] = page["total_count"]
+                cache["count"] = page["count"]
                 cache["results"].extend(page["results"])
                 params["offset"] += params["limit"]
             except requests.exceptions.RequestException as error:
@@ -41,6 +41,4 @@ def count_equipment():
 def personal_workout():
     return
 
-
-answer = input()
-load_data(opcao = answer)
+exercise = load_data(opcao = "exerciseinfo")
