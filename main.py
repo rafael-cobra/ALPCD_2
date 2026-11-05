@@ -25,7 +25,9 @@ def load_data(opcao):
                 print(f"Error consulting the dataset: {error}")
         with cache_file.open("w", encoding="utf-8") as file:
             json.dump(cache, file, ensure_ascii=False, indent=2)
-            
+
+load_data(opcao = "exerciseinfo")
+
 def list_n_ex():
     return
 
@@ -41,4 +43,3 @@ def count_equipment():
 def personal_workout():
     return
 
-exercise = load_data(opcao = "exerciseinfo")
