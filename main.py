@@ -33,7 +33,7 @@ def load_data(opcao):
         json.dump(cache, file, ensure_ascii=False, indent=2)
     return cache
 
-def list_n_ex():
+def list_n():
     return
 
 def search_musc_cat_list():
@@ -46,6 +46,9 @@ def count_equipment():
     return
 
 def personal_workout():
+    return
+
+def export_csv():
     return
 
 cache = load_data("exerciseinfo")
