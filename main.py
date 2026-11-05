@@ -8,25 +8,26 @@ cache_file = Path("cache.json")
 def load_data(opcao):
     if cache_file.exists():
         with cache_file.open(encoding="utf-8") as file:
-            cache = json.load(file)
-    else:
-        api = f"https://wger.de/api/v2/{opcao}"
-        params = {"limit": 186, "offset": 0}
-        cache = {"count": 0, "results": []}
-        while params["offset"] < cache["count"] or params["offset"] == 0:
+            return json.load(file)
+            
+    url = f"https://wger.de/api/v2/{opcao}"
+    params = {"limit": 20, "offset": 0}
+    cache = {"count": 0, "results": []}
+    while url:
             try:
-                response = requests.get(api, params=params)
+                response = requests.get(url, params=params, timeout=30)
                 response.raise_for_status()
                 page = response.json()
-                cache["count"] = page["count"]
-                cache["results"].extend(page["results"])
-                params["offset"] += params["limit"]
             except requests.exceptions.RequestException as error:
                 print(f"Error consulting the dataset: {error}")
-        with cache_file.open("w", encoding="utf-8") as file:
-            json.dump(cache, file, ensure_ascii=False, indent=2)
-
-load_data(opcao = "exerciseinfo")
+                return None
+            cache["count"] = page["count"]
+            cache["results"].extend(page["results"])
+            url = page["next"]
+            
+    with cache_file.open("w", encoding="utf-8") as file:
+        json.dump(cache, file, ensure_ascii=False, indent=2)
+    return cache
 
 def list_n_ex():
     return
@@ -43,3 +44,7 @@ def count_equipment():
 def personal_workout():
     return
 
+cache = load_data("exerciseinfo")
+
+if cache is None:
+    raise SystemExit("Error loading data.")
