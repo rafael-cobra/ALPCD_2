@@ -3,17 +3,16 @@ import re
 import json
 from pathlib import Path
 
-api = "https://wger.de/api/v2/"
 cache_file = Path("cache.json")
 
-def load_data():
+def load_data(opcao):
     if cache_file.exists():
         with cache_file.open(encoding="utf-8") as file:
             cache = json.load(file)
     else:
-        api = "https://wger.de/api/v2/"
+        api = f"https://wger.de/api/v2/{opcao}"
         params = {"limit": 0, "offset": 0}
-        cache = {"total_count": 0, "results": []}
+        cache = {"dataset_id": opcao, "total_count": 0, "results": []}
         while params["offset"] < cache["total_count"] or params["offset"] == 0:
             try:
                 response = requests.get(api, params=params)
@@ -41,3 +40,7 @@ def count_equipment():
 
 def personal_workout():
     return
+
+
+answer = input()
+load_data(opcao = answer)
