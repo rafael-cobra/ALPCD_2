@@ -3,15 +3,14 @@ import re
 import json
 from pathlib import Path
 
-cache_file = Path("cache.json")
-
 def load_data(opcao):
+    cache_file = Path(f"cache_{opcao}.json")
     if cache_file.exists():
         with cache_file.open(encoding="utf-8") as file:
             return json.load(file)
             
     url = f"https://wger.de/api/v2/{opcao}"
-    params = {"limit": 20, "offset": 0}
+    params = {"limit": 100, "offset": 0}
     cache = {"count": 0, "results": []}
     while url:
             try:
@@ -21,9 +20,14 @@ def load_data(opcao):
             except requests.exceptions.RequestException as error:
                 print(f"Error consulting the dataset: {error}")
                 return None
-            cache["count"] = page["count"]
-            cache["results"].extend(page["results"])
+            for ex in page["results"]:
+                english = [t for t in ex["translations"] if t["language"]==2]
+                if english:
+                    cache["results"].append({**ex, "translations": english})
+            
             url = page["next"]
+            params = None
+            cache["count"] = len(cache["results"])
             
     with cache_file.open("w", encoding="utf-8") as file:
         json.dump(cache, file, ensure_ascii=False, indent=2)
