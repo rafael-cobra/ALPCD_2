@@ -50,16 +50,16 @@ def search_musc_cat_list(term, n):
                            "equipment": [e["name"] for e in ex["equipment"]]})
     return result[:n]
 
-def extract_type_id():
+def extract_type_id(exercise_id):
     return
 
-def count_equipment():
+def count_equipment(category):
     return
 
-def personal_workout():
+def personal_workout(terms, effor, n):
     return
 
-def export_csv():
+def export_csv(plan, path):
     return
 
 cache = load_data("exerciseinfo")
