@@ -33,8 +33,11 @@ def load_data(opcao):
         json.dump(cache, file, ensure_ascii=False, indent=2)
     return cache
 
-def list_n():
-    return
+def list_n(n):
+    return [{"name": ex["translations"][0]["name"],
+             "category": ex["category"]["name"],
+             "equipment": [e["name"] for e in ex["equipment"]]}
+            for ex in cache["results"][-n:]]
 
 def search_musc_cat_list():
     return
