@@ -26,11 +26,12 @@ def equipment(category: str):
 @app.command()
 def workout(muscles: str, effort: str, n: int, csv: str=None):
     if effort not in ("compound", "isolated", "any"):
-        raise typer.BadParameter("effort must be compund, isolated or any")
+        raise typer.BadParameter("effort must be compound, isolated or any")
     plan = main.personal_workout(muscles.split(","), effort, n)
     if csv:
         print(f"File exported: {csv} ({main.export_csv(plan, csv)} records)")
     else:
         show(plan)
         
-app()   
+if __name__ == "__main__":
+    app()
