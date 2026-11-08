@@ -39,8 +39,16 @@ def list_n(n):
              "equipment": [e["name"] for e in ex["equipment"]]}
             for ex in cache["results"][-n:]]
 
-def search_musc_cat_list():
-    return
+def search_musc_cat_list(term, n):
+    result = []
+    for ex in cache["results"]:
+        muscles = [m["name_en"] or m["name"] for m in ex["muscles"]]
+        text = ex["category"]["name"] + " " + " ".join(muscles)
+        if term.lower() in text.lower():
+            result.append({"name": ex["translations"][0]["name"],
+                           "category": ex["category"]["name"],
+                           "equipment": [e["name"] for e in ex["equipment"]]})
+    return result[:n]
 
 def extract_type_id():
     return
