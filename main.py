@@ -8,7 +8,7 @@ def load_data(opcao):
     if cache_file.exists():
         with cache_file.open(encoding="utf-8") as file:
             return json.load(file)
-            
+
     url = f"https://wger.de/api/v2/{opcao}"
     params = {"limit": 100, "offset": 0}
     cache = {"count": 0, "results": []}
@@ -24,23 +24,124 @@ def load_data(opcao):
                 english = [t for t in ex["translations"] if t["language"]==2]
                 if english:
                     cache["results"].append({**ex, "translations": english})
-            
+
             url = page["next"]
             params = None
             cache["count"] = len(cache["results"])
-            
+
     with cache_file.open("w", encoding="utf-8") as file:
         json.dump(cache, file, ensure_ascii=False, indent=2)
     return cache
 
+def find_exercise(exercise_id):
+    for exercise in cache["results"]:
+        if exercise["id"] == exercise_id:
+            return exercise
+
+        return None
+
 def list_n():
     return
 
-def search_musc_cat_list():
-    return
+def search_musc_cat_list(valor, tipo):
+    encontrados = []
 
-def extract_type_id():
-    return
+    for exercise in cache["results"]:
+
+        if tipo == "muscle":
+            muscles = get_muscle_names(exercise)
+
+            if valor.lower() in [m.lower() for m in muscles]:
+                encontrados.append(exercise)
+
+        elif tipo == "category":
+            category = exercise.get("category", {})
+
+            if category.get("name", "").lower() == valor.lower():
+                encontrados.append(exercise)
+
+    return encontrados
+
+def is_cardio(name, description):
+    name = name.lower()
+    description = description.lower()
+
+    padrao_nome = r"\b(running|run|cycling|jogging|swimming|treadmill|jump rope|rowing machine)\b"
+    padrao_descricao = r"\b(cycling|jogging|swimming|treadmill|jump rope)\b"
+
+    return bool(
+        re.search(padrao_nome, name)
+        or re.search(padrao_descricao, description)
+    )
+
+def get_muscle_names(exercise):
+    muscles = exercise.get("muscles", [])
+    secondary = exercise.get("muscles_secondary", [])
+
+    names = []
+
+    for muscle in muscles + secondary:
+        names.append(muscle["name"])
+
+    return names
+
+def count_muscles(exercise):
+    muscles = get_muscle_names(exercise)
+
+    return len(muscles)
+
+def has_muscle_support(exercise):
+    muscles = get_muscle_names(exercise)
+
+    return len(muscles) >= 2
+
+def is_isolated(name, description):
+    texto = f"{name} {description}".lower()
+
+    padrao = r"\b(curls?|leg extensions?|knee extensions?|triceps extensions?|lateral raises?|fly|shrugs?|calf raises?)\b"
+
+    return bool(re.search(padrao, texto))
+
+def is_compound(name, description, exercise):
+
+    if is_isolated(name, description):
+        return False
+
+    if not has_muscle_support(exercise):
+        return False
+
+    # Movimentos compostos reconhecidos pelo nome
+    padrao_nome = r"\b(deadlift|bench press|pull-up|push-up|lunge|row|rowing)\b"
+
+    # Evidências de movimento em várias articulações
+    padrao_movimento = r"\b(knees and hips|hips and knees)\b"
+
+    return bool(
+        re.search(padrao_nome, name)
+        or re.search(padrao_movimento, description)
+    )
+
+def extract_type_id(exercise_id):
+    exercise = find_exercise(exercise_id)
+
+    if exercise is None:
+        return "other"
+
+    translation = exercise["translations"][0]
+
+    name = translation["name"].lower()
+    description = translation["description"].lower()
+
+    if is_cardio(name, description):
+        return "cardio"
+
+    if is_isolated(name, description):
+        return "isolated"
+
+    if is_compound(name, description, exercise):
+        return "compound"
+
+    return "other"
 
 def count_equipment():
     return
