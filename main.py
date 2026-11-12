@@ -40,8 +40,11 @@ def find_exercise(exercise_id):
 
         return None
 
-def list_n():
-    return
+def list_n(n):
+    return [{"name": ex["translations"][0]["name"],
+             "category": ex["category"]["name"],
+             "equipment": [e["name"] for e in ex["equipment"]]}
+            for ex in cache["results"][-n:]]
 
 def search_musc_cat_list(valor, tipo):
     encontrados = []
@@ -143,13 +146,13 @@ def extract_type_id(exercise_id):
 
     return "other"
 
-def count_equipment():
+def count_equipment(category):
     return
 
-def personal_workout():
+def personal_workout(terms, effor, n):
     return
 
-def export_csv():
+def export_csv(plan, path):
     return
 
 cache = load_data("exerciseinfo")
