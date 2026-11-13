@@ -38,7 +38,7 @@ def find_exercise(exercise_id):
         if exercise["id"] == exercise_id:
             return exercise
 
-        return None
+    return None
 
 def list_n(n):
     return [{"name": ex["translations"][0]["name"],
@@ -54,7 +54,7 @@ def search_musc_cat_list(valor, tipo):
         if tipo == "muscle":
             muscles = get_muscle_names(exercise)
 
-            if valor.lower() in [m.lower() for m in muscles]:
+            if any(valor.lower() in muscle.lower() for muscle in muscles):
                 encontrados.append(exercise)
 
         elif tipo == "category":

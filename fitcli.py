@@ -13,7 +13,8 @@ def top(n: int):
     
 @app.command()
 def search(term: str, n: int):
-    show(main.search_musc_cat_list(term, n))
+    results = main.search_musc_cat_list(term, "muscle")
+    show(results[:n])
     
 @app.command("type")
 def type_(exercise_id:int):
