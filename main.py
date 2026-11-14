@@ -51,10 +51,25 @@ def search_musc_cat_list(term, n):
     return result[:n]
 
 def extract_type_id(exercise_id):
-    return
+
+    return None
 
 def count_equipment(category):
-    return
+    equipment = ["barbell", "dumbbell", "cable", "machine", "bodyweight"]
+    pairs_count = []
+    for word in equipment:
+        total = 0
+        for ex in cache["results"]:
+            if category.lower() in ex["category"]["name"].lower():
+                text = ex["translations"][0]["description"].lower()
+                eq_found = re.findall(word, text)
+                total = total + len(eq_found)
+        pairs_count.append([total, word])
+    pairs_count.sort(reverse = True)
+    result = []
+    for pair in pairs_count:
+        result.append({pair[1]: pair[0]})
+    return result
 
 def personal_workout(terms, effor, n):
     return
