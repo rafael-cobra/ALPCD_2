@@ -9,11 +9,11 @@ def show(data):
 
 @app.command()
 def top(n: int):
-    show(main.list_n(n))
-    
+    show(main.list_last_n(n))
+
 @app.command()
 def search(term: str, n: int):
-    results = main.search_musc_cat_list(term, "muscle")
+    results = main.search_muscle_category_list(term, "muscle")
     show(results[:n])
     
 @app.command("type")
