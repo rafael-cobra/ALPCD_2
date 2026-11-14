@@ -34,8 +34,17 @@ def load_data(opcao):
     return cache
 
 def find_exercise(exercise_id):
+    # Procurar primeiro pelo ID do exercício
     for exercise in cache["results"]:
         if exercise["id"] == exercise_id:
+            return exercise
+
+   # Se não encontrar, procurar pelo ID da tradução
+    for exercise in cache["results"]:
+        if any(
+            translation["id"] == exercise_id
+            for translation in exercise.get("translations", [])
+        ):
             return exercise
 
     return None
