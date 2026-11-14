@@ -87,18 +87,26 @@ def search_muscle_category_list(value, category_type):
     return matches
 
 
-def is_cardio(name, description):
+def is_cardio(name, description, category):
     name = name.lower()
     description = description.lower()
+    category = (category or "").lower()
 
     name_pattern = r"\b(running|run|cycling|jogging|swimming|treadmill|jump rope|rowing machine)\b"
     description_pattern = r"\b(cycling|jogging|swimming|treadmill|jump rope)\b"
+    effort_pattern = r"\b(aerobic|endurance|cardiovascular|heart rate|as fast as you can|for \d+ minutes|short breaks?)\b"
 
-    return bool(
+    clear_cardio_activity = (
         re.search(name_pattern, name)
         or re.search(description_pattern, description)
     )
 
+    category_with_effort = (
+        category == "cardio"
+        and re.search(effort_pattern, description)
+    )
+
+    return bool(clear_cardio_activity or category_with_effort)
 
 def get_muscle_names(exercise):
     muscles = exercise.get("muscles", [])
@@ -161,8 +169,9 @@ def extract_type_id(exercise_id):
 
     name = translation["name"].lower()
     description = translation["description"].lower()
+    category = exercise.get("category", {}).get("name", "").lower()
 
-    if is_cardio(name, description):
+    if is_cardio(name, description, category):
         return "cardio"
 
     if is_isolated(name, description):
