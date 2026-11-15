@@ -11,11 +11,12 @@ def load_data(option):
             return json.load(file)
 
     url = f"https://wger.de/api/v2/{option}"
+    headers = {"User-Agent": "fitcli-ALPCD2/1.0 (Projeto Grupo 2, Universidade do Minho)"}
     params = {"limit": 100, "offset": 0}
     cache = {"count": 0, "results": []}
     while url:
         try:
-            response = requests.get(url, params=params, timeout=30)
+            response = requests.get(url, params=params, headers=headers, timeout=30)
             response.raise_for_status()
             page = response.json()
         except requests.exceptions.RequestException as error:
@@ -56,36 +57,33 @@ def find_exercise(exercise_id):
 
     return None
 
+def summarize(exercise):
+    return {
+        "id": exercise["id"],
+        "name": exercise["translations"][0]["name"],
+        "category": exercise["category"]["name"],
+        "muscles": [m["name"] for m in exercise.get("muscles", [])],
+        "muscles_secondary": [m["name"] for m in exercise.get("muscles_secondary", [])],
+        "equipment": [e["name"] for e in exercise["equipment"]],
+    }
 
 def list_last_n(n):
-    return [
-        {
-            "name": exercise["translations"][0]["name"],
-            "category": exercise["category"]["name"],
-            "equipment": [item["name"] for item in exercise["equipment"]],
-        }
-        for exercise in cache["results"][-n:]
-    ]
+    return [summarize(exercise) for exercise in cache["results"][-n:]]
 
-
-def search_muscle_category_list(value, category_type):
+def search_exercises(term, limit):
+    term = term.lower()
     matches = []
 
     for exercise in cache["results"]:
-        if category_type == "muscle":
-            muscles = get_muscle_names(exercise)
+        muscle_hit = any(term in muscle.lower() for muscle in get_muscle_names(exercise))
+        category_hit = exercise.get("category", {}).get("name", "").lower() == term
 
-            if any(value.lower() in muscle.lower() for muscle in muscles):
-                matches.append(exercise)
-
-        elif category_type == "category":
-            category = exercise.get("category", {})
-
-            if category.get("name", "").lower() == value.lower():
-                matches.append(exercise)
+        if muscle_hit or category_hit:
+            matches.append(summarize(exercise))
+            if len(matches) == limit:
+                break
 
     return matches
-
 
 def is_cardio(name, description, category):
     name = name.lower()
