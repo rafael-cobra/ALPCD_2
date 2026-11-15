@@ -12,9 +12,8 @@ def top(n: int):
     show(main.list_last_n(n))
 
 @app.command()
-def search(term: str, n: int):
-    results = main.search_muscle_category_list(term, "muscle")
-    show(results[:n])
+def search(term: str, n: int = typer.Argument(..., min=1)):
+    show(main.search_exercises(term, n))
     
 @app.command("type")
 def type_(exercise_id:int):
