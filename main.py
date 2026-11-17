@@ -1,8 +1,26 @@
-import requests
-import re
+import csv
 import json
+import re
+from collections import Counter
+from functools import lru_cache
 from pathlib import Path
+import requests
 
+BASE_URL = "https://wger.de/api/v2"
+LANGUAGE_EN = 2
+HEADERS = {"User-Agent": "fitcli-ALPCD2/1.0 (Projeto Grupo 2, Universidade do Minho)"}
+EQUIPMENT_WORDS = ["barbell", "dumbbell", "cable", "machine", "bodyweight"]
+
+CARDIO_NAME_RE = re.compile(r"\b(running|run|cycling|jogging|swimming|treadmill|jump rope|rowing machine)\b")
+CARDIO_DESC_RE = re.compile(r"\b(cycling|jogging|swimming|treadmill|jump rope)\b")
+CARDIO_EFFORT_RE = re.compile(r"\b(aerobic|endurance|cardiovascular|heart rate|as fast as you can|for \d+ minutes|short breaks?)\b")
+ISOLATED_RE = re.compile(r"\b(curls?|leg extensions?|knee extensions?|triceps extensions?|lateral raises?|fly|flyes|shrugs?|calf raises?)\b")
+COMPOUND_NAME_RE = re.compile(r"\b(deadlifts?|bench press|presses|press|pull-?ups?|chin-?ups?|push-?ups?|lunges?|squats?|dips?|rows?|rowing)\b")
+COMPOUND_MOVE_RE = re.compile(r"\b(knees and hips|hips and knees)\b")
+
+def clean(text):
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip().lower()
 
 def load_data(option):
     cache_file = Path(f"cache_{option}.json")
@@ -10,36 +28,33 @@ def load_data(option):
         with cache_file.open(encoding="utf-8") as file:
             return json.load(file)
 
-    url = f"https://wger.de/api/v2/{option}"
-    headers = {"User-Agent": "fitcli-ALPCD2/1.0 (Projeto Grupo 2, Universidade do Minho)"}
-    params = {"limit": 100, "offset": 0}
+    url = f"{BASE_URL}/{option}"
+    params = {"limit": 100, "offset": 0, "language": LANGUAGE_EN}
     cache = {"count": 0, "results": []}
-    while url:
-        try:
-            response = requests.get(url, params=params, headers=headers, timeout=30)
-            response.raise_for_status()
-            page = response.json()
-        except requests.exceptions.RequestException as error:
-            print(f"Error consulting the dataset: {error}")
-            return None
 
-        for exercise_entry in page["results"]:
-            english_translations = [
-                translation
-                for translation in exercise_entry["translations"]
-                if translation["language"] == 2
-            ]
-            if english_translations:
-                cache["results"].append({**exercise_entry, "translations": english_translations})
+    with requests.Session() as session:
+        session.headers.update(HEADERS)
+        while url:
+            try:
+                response = session.get(url, params=params, timeout=30)
+                response.raise_for_status()
+                page = response.json()
+            except requests.exceptions.RequestException as error:
+                print(f"Error consulting the dataset: {error}")
+                return None
 
-        url = page["next"]
-        params = None
-        cache["count"] = len(cache["results"])
+            for entry in page["results"]:
+                english = [t for t in entry["translations"] if t["language"] == LANGUAGE_EN]
+                if english:
+                    cache["results"].append({**entry, "translations": english})
 
+            url = page["next"]
+            params = None
+
+    cache["count"] = len(cache["results"])
     with cache_file.open("w", encoding="utf-8") as file:
         json.dump(cache, file, ensure_ascii=False, indent=2)
     return cache
-
 
 def find_exercise(exercise_id):
     # Search first by exercise ID
@@ -65,151 +80,106 @@ def summarize(exercise):
         "muscles": [m["name"] for m in exercise.get("muscles", [])],
         "muscles_secondary": [m["name"] for m in exercise.get("muscles_secondary", [])],
         "equipment": [e["name"] for e in exercise["equipment"]],
+        "type": classify(exercise),
     }
 
 def list_last_n(n):
     return [summarize(exercise) for exercise in cache["results"][-n:]]
 
-def search_exercises(term, limit):
+def get_muscle_names(exercise):
+    muscles = exercise.get("muscles", []) + exercise.get("muscles_secondary", [])
+    return [muscle["name"] for muscle in muscles]
+
+def matches(exercise, term):
     term = term.lower()
-    matches = []
+    return (
+        any(term in muscle.lower() for muscle in get_muscle_names(exercise))
+        or term in exercise["category"]["name"].lower()
+    )
 
+def search_exercises(term, limit=None):
+    results = []
     for exercise in cache["results"]:
-        muscle_hit = any(term in muscle.lower() for muscle in get_muscle_names(exercise))
-        category_hit = exercise.get("category", {}).get("name", "").lower() == term
-
-        if muscle_hit or category_hit:
-            matches.append(summarize(exercise))
-            if len(matches) == limit:
+        if matches(exercise, term):
+            results.append(summarize(exercise))
+            if limit and len(results) == limit:
                 break
-
-    return matches
+    return results
 
 def is_cardio(name, description, category):
-    name = name.lower()
-    description = description.lower()
-    category = (category or "").lower()
-
-    name_pattern = r"\b(running|run|cycling|jogging|swimming|treadmill|jump rope|rowing machine)\b"
-    description_pattern = r"\b(cycling|jogging|swimming|treadmill|jump rope)\b"
-    effort_pattern = r"\b(aerobic|endurance|cardiovascular|heart rate|as fast as you can|for \d+ minutes|short breaks?)\b"
-
-    clear_cardio_activity = (
-        re.search(name_pattern, name)
-        or re.search(description_pattern, description)
+    return bool(
+        CARDIO_NAME_RE.search(name)
+        or CARDIO_DESC_RE.search(description)
+        or (category == "cardio" and CARDIO_EFFORT_RE.search(description))
     )
-
-    category_with_effort = (
-        category == "cardio"
-        and re.search(effort_pattern, description)
-    )
-
-    return bool(clear_cardio_activity or category_with_effort)
-
-def get_muscle_names(exercise):
-    muscles = exercise.get("muscles", [])
-    secondary_muscles = exercise.get("muscles_secondary", [])
-
-    names = []
-
-    for muscle in muscles + secondary_muscles:
-        names.append(muscle["name"])
-
-    return names
-
-
-def count_muscles(exercise):
-    muscles = get_muscle_names(exercise)
-
-    return len(muscles)
-
-
-def has_muscle_support(exercise):
-    muscles = get_muscle_names(exercise)
-
-    return len(muscles) >= 2
-
 
 def is_isolated(name, description):
-    text = f"{name} {description}".lower()
-
-    pattern = r"\b(curls?|leg extensions?|knee extensions?|triceps extensions?|lateral raises?|fly|shrugs?|calf raises?)\b"
-
-    return bool(re.search(pattern, text))
-
+    return bool(ISOLATED_RE.search(f"{name} {description}"))
 
 def is_compound(name, description, exercise):
     if is_isolated(name, description):
         return False
-
-    if not has_muscle_support(exercise):
-        return False
-
-    # Recognized compound movements by name
-    name_pattern = r"\b(deadlift|bench press|pull-up|push-up|lunge|row|rowing)\b"
-
-    # Evidence of movement across multiple joints
-    movement_pattern = r"\b(knees and hips|hips and knees)\b"
-
     return bool(
-        re.search(name_pattern, name)
-        or re.search(movement_pattern, description)
+        COMPOUND_NAME_RE.search(name)
+        or COMPOUND_MOVE_RE.search(description)
+        or len(get_muscle_names(exercise)) >= 2
     )
 
-
-def extract_type_id(exercise_id):
-    exercise = find_exercise(exercise_id)
-
-    if exercise is None:
-        return "other"
-
+def classify(exercise):
     translation = exercise["translations"][0]
-
     name = translation["name"].lower()
-    description = translation["description"].lower()
-    category = exercise.get("category", {}).get("name", "").lower()
+    description = clean(translation["description"])
+    category = exercise["category"]["name"].lower()
 
     if is_cardio(name, description, category):
         return "cardio"
-
     if is_isolated(name, description):
         return "isolated"
-
     if is_compound(name, description, exercise):
         return "compound"
-
     return "other"
 
+def extract_type_id(exercise_id):
+    exercise = find_exercise(exercise_id)
+    return classify(exercise) if exercise else None
 
 def count_equipment(category):
-    equipment = ["barbell", "dumbbell", "cable", "machine", "bodyweight"]
-    pairs_count = []
-    for word in equipment:
-        total = 0
-        for ex in cache["results"]:
-            if category.lower() in ex["category"]["name"].lower():
-                text = ex["translations"][0]["description"].lower()
-                eq_found = re.findall(word, text)
-                total = total + len(eq_found)
-        pairs_count.append([total, word])
-    pairs_count.sort(reverse = True)
-    result = []
-    for pair in pairs_count:
-        result.append({pair[1]: pair[0]})
-    return result
-
+    counts = Counter()
+    for ex in cache["results"]:
+        if category.lower() not in ex["category"]["name"].lower():
+            continue
+        text = clean(ex["translations"][0]["description"])
+        for word in EQUIPMENT_WORDS:
+            counts[word] += len(re.findall(rf"\b{word}s?\b", text))
+    return [{word: total} for word, total in counts.most_common()]
 
 def personal_workout(terms, effort, n):
     workout = {}
     for term in terms:
-        result =search_exercises(term,n)
-        workout[term] = [result]
+        term = term.strip()
+        exercises = search_exercises(term)
+        if effort != "any":
+            exercises = [ex for ex in exercises if ex["type"] == effort]
+        workout[term] = exercises[:n]
     return workout
 
-
 def export_csv(plan, path):
-    return
-
+    rows = [
+        {**ex, "group": group,
+         "muscles": ", ".join(ex["muscles"]),
+         "equipment": ", ".join(ex["equipment"])}
+        for group, exercises in plan.items()
+        for ex in exercises
+    ]
+    with open(path, "w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=["group", "name", "category", "type", "muscles", "equipment"],
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+    return len(rows)
 
 cache = load_data("exerciseinfo")
 
