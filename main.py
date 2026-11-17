@@ -200,7 +200,11 @@ def count_equipment(category):
 
 
 def personal_workout(terms, effort, n):
-    return
+    workout = {}
+    for term in terms:
+        result =search_exercises(term,n)
+        workout[term] = [result]
+    return workout
 
 
 def export_csv(plan, path):
