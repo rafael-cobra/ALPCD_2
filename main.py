@@ -1,8 +1,6 @@
 import csv
 import json
 import re
-from collections import Counter
-from functools import lru_cache
 from pathlib import Path
 import requests
 
@@ -57,17 +55,8 @@ def load_data(option):
     return cache
 
 def find_exercise(exercise_id):
-    # Search first by exercise ID
     for exercise in cache["results"]:
         if exercise["id"] == exercise_id:
-            return exercise
-
-    # If not found, search by translation ID
-    for exercise in cache["results"]:
-        if any(
-            translation["id"] == exercise_id
-            for translation in exercise.get("translations", [])
-        ):
             return exercise
 
     return None
@@ -144,14 +133,21 @@ def extract_type_id(exercise_id):
     return classify(exercise) if exercise else None
 
 def count_equipment(category):
-    counts = Counter()
-    for ex in cache["results"]:
-        if category.lower() not in ex["category"]["name"].lower():
-            continue
-        text = clean(ex["translations"][0]["description"])
-        for word in EQUIPMENT_WORDS:
-            counts[word] += len(re.findall(rf"\b{word}s?\b", text))
-    return [{word: total} for word, total in counts.most_common()]
+    pairs = []
+    for word in EQUIPMENT_WORDS:
+        total = 0
+        for ex in cache["results"]:
+            if category.lower() in ex["category"]["name"].lower():
+                text = clean(ex["translations"][0]["description"])
+                total += text.count(word)
+        pairs.append([total, word])
+
+    pairs.sort(reverse=True)
+
+    result = []
+    for pair in pairs:
+        result.append({pair[1]: pair[0]})
+    return result
 
 def personal_workout(terms, effort, n):
     workout = {}
@@ -182,6 +178,7 @@ def export_csv(plan, path):
     return len(rows)
 
 cache = load_data("exerciseinfo")
+cache_routine = load_data("routine", authorization = "Token 815fc24b078ee0d0f78020fe568a4c4da6508814")
 
 if cache is None:
     raise SystemExit("Error loading data.")
