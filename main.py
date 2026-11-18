@@ -178,7 +178,7 @@ def export_csv(plan, path):
     return len(rows)
 
 cache = load_data("exerciseinfo")
-cache_routine = load_data("routine", authorization = "Token 815fc24b078ee0d0f78020fe568a4c4da6508814")
+cache_routine = load_data("routine", authorization = "")
 
 if cache is None:
     raise SystemExit("Error loading data.")
