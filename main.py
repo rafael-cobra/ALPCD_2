@@ -3,6 +3,7 @@ import json
 import re
 from pathlib import Path
 import requests
+import os
 
 BASE_URL = "https://wger.de/api/v2"
 LANGUAGE_EN = 2
@@ -177,8 +178,52 @@ def export_csv(plan, path):
         writer.writerows(rows)
     return len(rows)
 
-cache = load_data("exerciseinfo")
-cache_routine = load_data("routine", authorization = "")
+def load_routine_index():
+    cache_file = Path("cache_routines.json")
+    if cache_file.exists():
+        with cache_file.open(encoding="utf-8") as file:
+            return json.load(file)
+    token = os.environ.get("WGER_TOKEN")
+    if not token:
+        print("Set the WGER_TOKEN environment variable first")
+        return None
+    headers = {**HEADERS, "Authorization": f"Token {token}"}
+    index = {}
+    url = f"{BASE_URL}/routine/"
+    params = {"limit": 100, "is_template": "true", "is_public": "true"}
+    
+    try:
+        while url:
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            response.raise_for_status()
+            page = response.json()
+            for routine in page["results"]:
+                response = requests.get(f"{BASE_URL}/routine/{routine['id']}/structure/",
+                                        headers=headers, timeout=30)
+                response.raise_for_status()
+                for day in response.json()["days"]:
+                    for slot in day["slots"]:
+                        for entry in slot["entries"]:
+                            index.setdefault(str(entry["exercise"]), {})[routine["id"]] = routine["name"]
+            url = page["next"]
+            params = None
+    except requests.exceptions.RequestException as error:
+        print(f"Error consulting the routines: {error}")
+        return None
+    
+    with cache_file.open("w", encoding="utf-8") as file:
+        json.dump(index, file, ensure_ascii=False, indent=2)
+    return index
 
-if cache is None:
+def routines_for_exercise(exercise_id):
+    index = load_routine_index()
+    if index is None:
+        return None
+    found = index.get(str(exercise_id), {})
+    return [{"id": int(rid), "name": name} for rid, name in found.items()]            
+
+cache = load_data("exerciseinfo")
+routine_index = load_routine_index()
+
+if cache is None or routine_index is None:
     raise SystemExit("Error loading data.")
