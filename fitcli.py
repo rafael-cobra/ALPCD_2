@@ -46,8 +46,16 @@ def workout(muscles: str, effort: str, n: int = typer.Argument(..., min=1),
 @app.command()
 def routines(exercise_id: int):
     result = main.routines_for_exercise(exercise_id)
+    if not result:
+        typer.echo(f"No routines use exercise {exercise_id}", err=True)
+        raise typer.Exit(1)
+    show(result)
+
+@app.command()
+def routine(routine_id: int):
+    result = main.get_routine(routine_id)
     if result is None:
-        typer.echo("Could not load routines", err=True)
+        typer.echo(f"Routine {routine_id} not found", err=True)
         raise typer.Exit(1)
     show(result)
     
