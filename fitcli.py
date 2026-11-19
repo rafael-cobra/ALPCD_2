@@ -43,5 +43,13 @@ def workout(muscles: str, effort: str, n: int = typer.Argument(..., min=1),
         raise typer.Exit(1)
     print(f"File exported: {csv} ({count} records)")
         
+@app.command()
+def routines(exercise_id: int):
+    result = main.routines_for_exercise(exercise_id)
+    if result is None:
+        typer.echo("Could not load routines", err=True)
+        raise typer.Exit(1)
+    show(result)
+    
 if __name__ == "__main__":
     app()
