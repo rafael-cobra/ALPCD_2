@@ -178,20 +178,22 @@ def export_csv(plan, path):
         writer.writerows(rows)
     return len(rows)
 
-def load_routine_index():
+def load_routines():
     cache_file = Path("cache_routines.json")
     if cache_file.exists():
         with cache_file.open(encoding="utf-8") as file:
             return json.load(file)
+
     token = os.environ.get("WGER_TOKEN")
     if not token:
-        print("Set the WGER_TOKEN environment variable first")
+        print("Set the WGER_TOKEN environment variable first.")
         return None
+
     headers = {**HEADERS, "Authorization": f"Token {token}"}
-    index = {}
+    routines = {}  # routine id -> {"name": ..., "days": [[exercise ids]]}
     url = f"{BASE_URL}/routine/"
     params = {"limit": 100, "is_template": "true", "is_public": "true"}
-    
+
     try:
         while url:
             response = requests.get(url, headers=headers, params=params, timeout=30)
@@ -201,29 +203,43 @@ def load_routine_index():
                 response = requests.get(f"{BASE_URL}/routine/{routine['id']}/structure/",
                                         headers=headers, timeout=30)
                 response.raise_for_status()
-                for day in response.json()["days"]:
-                    for slot in day["slots"]:
-                        for entry in slot["entries"]:
-                            index.setdefault(str(entry["exercise"]), {})[routine["id"]] = routine["name"]
+                days = [
+                    [entry["exercise"] for slot in day["slots"] for entry in slot["entries"]]
+                    for day in response.json()["days"]
+                ]
+                routines[str(routine["id"])] = {"name": routine["name"], "days": days}
             url = page["next"]
             params = None
     except requests.exceptions.RequestException as error:
         print(f"Error consulting the routines: {error}")
         return None
-    
+
     with cache_file.open("w", encoding="utf-8") as file:
-        json.dump(index, file, ensure_ascii=False, indent=2)
-    return index
+        json.dump(routines, file, ensure_ascii=False, indent=2)
+    return routines
+
+def exercise_name(exercise_id):
+    exercise = find_exercise(exercise_id)
+    return exercise["translations"][0]["name"] if exercise else str(exercise_id)
 
 def routines_for_exercise(exercise_id):
-    index = load_routine_index()
-    if index is None:
+    return [
+        {"id": int(rid), "name": routine["name"]}
+        for rid, routine in routine_cache.items()
+        if any(exercise_id in day for day in routine["days"])
+    ]
+    
+def get_routine(routine_id):
+    routine = routine_cache.get(str(routine_id))
+    if routine is None:
         return None
-    found = index.get(str(exercise_id), {})
-    return [{"id": int(rid), "name": name} for rid, name in found.items()]            
+    return {
+        "name": routine["name"],
+        "days": [[exercise_name(i) for i in day] for day in routine["days"]],
+    }          
 
 cache = load_data("exerciseinfo")
-routine_index = load_routine_index()
+routine_cache = load_routines()
 
-if cache is None or routine_index is None:
+if cache is None or routine_cache is None:
     raise SystemExit("Error loading data.")
