@@ -133,6 +133,8 @@ def extract_type_id(exercise_id):
     exercise = find_exercise(exercise_id)
     return classify(exercise) if exercise else None
 
+#count_equipent conta quantas vezes aparece cada equipamento nas descrições dos exercicios, de uma certa categoria, devolvendo o resultado ordenado de forma decrescente
+#em suma, mostra qual é o equipamento que aparece mais vezes numa categoria, por ordem descrescente
 def count_equipment(category):
     pairs = []
     for word in EQUIPMENT_WORDS:
@@ -149,6 +151,27 @@ def count_equipment(category):
     for pair in pairs:
         result.append({pair[1]: pair[0]})
     return result
+
+#available destina-se a devolver um dicionário com todos os exercicios, categorias, equipamentos e músculos que existem, sem repetições
+def available():
+    categories = []
+    muscles = []
+    equipment = []
+    for exercise in cache["results"]:
+        category = exercise["category"]["name"]
+        if category not in categories:
+            categories.append(category)
+        for muscle in get_muscle_names(exercise):
+            if muscle not in muscles:
+                muscles.append(muscle)
+        for item in exercise["equipment"]:
+            if item["name"] not in equipment:
+                equipment.append(item["name"])
+    return{
+        "categories": categories,
+        "muscles": muscles,
+        "equipment": equipment
+    }
 
 def personal_workout(terms, effort, n):
     workout = {}
