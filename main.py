@@ -18,10 +18,13 @@ COMPOUND_NAME_RE = re.compile(r"\b(deadlifts?|bench press|presses|press|pull-?up
 COMPOUND_MOVE_RE = re.compile(r"\b(knees and hips|hips and knees)\b")
 
 def clean(text):
+    """Tira as tags HTML e os espaços a mais de um texto e passa tudo para minúsculas."""
     text = re.sub(r"<[^>]+>", " ", text)
     return re.sub(r"\s+", " ", text).strip().lower()
 
 def load_data(option):
+    """Descarrega todas as páginas da API para a rota indicada (só em inglês) e guarda em cache JSON.
+    Se o ficheiro de cache já existir, lê-o em vez de chamar a API. Devolve None se o pedido falhar."""
     cache_file = Path(f"cache_{option}.json")
     if cache_file.exists():
         with cache_file.open(encoding="utf-8") as file:
@@ -56,6 +59,7 @@ def load_data(option):
     return cache
 
 def find_exercise(exercise_id):
+    """Procura um exercício pelo id. Devolve None se não existir."""
     for exercise in cache["results"]:
         if exercise["id"] == exercise_id:
             return exercise
@@ -63,6 +67,7 @@ def find_exercise(exercise_id):
     return None
 
 def summarize(exercise):
+    """Devolve só os campos que interessam (id, nome, categoria, músculos, equipamento e tipo)."""
     return {
         "id": exercise["id"],
         "name": exercise["translations"][0]["name"],
@@ -74,13 +79,16 @@ def summarize(exercise):
     }
 
 def list_last_n(n):
+    """Devolve os n exercícios mais recentes (os últimos da lista)."""
     return [summarize(exercise) for exercise in cache["results"][-n:]]
 
 def get_muscle_names(exercise):
+    """Devolve os nomes de todos os músculos do exercício, principais e secundários."""
     muscles = exercise.get("muscles", []) + exercise.get("muscles_secondary", [])
     return [muscle["name"] for muscle in muscles]
 
 def matches(exercise, term):
+    """Diz se o termo aparece no nome de algum músculo ou na categoria do exercício."""
     term = term.lower()
     return (
         any(term in muscle.lower() for muscle in get_muscle_names(exercise))
@@ -88,6 +96,7 @@ def matches(exercise, term):
     )
 
 def search_exercises(term, limit=None):
+    """Pesquisa exercícios por músculo ou categoria e para ao atingir o limite, se existir."""
     results = []
     for exercise in cache["results"]:
         if matches(exercise, term):
@@ -97,6 +106,7 @@ def search_exercises(term, limit=None):
     return results
 
 def is_cardio(name, description, category):
+    """Verifica com regex se o exercício é de cardio, pelo nome, descrição e categoria."""
     return bool(
         CARDIO_NAME_RE.search(name)
         or CARDIO_DESC_RE.search(description)
@@ -104,9 +114,13 @@ def is_cardio(name, description, category):
     )
 
 def is_isolated(name, description):
+    """Verifica com regex se o exercício é isolado (curl, extension, lateral raise...)."""
     return bool(ISOLATED_RE.search(f"{name} {description}"))
 
 def is_compound(name, description, exercise):
+    """Verifica se o exercício é composto. Os isolados ficam logo de fora.
+    Conta como composto se o nome for típico (squat, press...), se a descrição falar de várias articulações
+    ou se trabalhar 2 ou mais músculos."""
     if is_isolated(name, description):
         return False
     return bool(
@@ -116,6 +130,7 @@ def is_compound(name, description, exercise):
     )
 
 def classify(exercise):
+    """Devolve cardio, isolated, compound ou other, por esta ordem de prioridade."""
     translation = exercise["translations"][0]
     name = translation["name"].lower()
     description = clean(translation["description"])
@@ -130,12 +145,13 @@ def classify(exercise):
     return "other"
 
 def extract_type_id(exercise_id):
+    """Devolve o tipo de esforço do exercício com esse id, ou None se não existir."""
     exercise = find_exercise(exercise_id)
     return classify(exercise) if exercise else None
 
-#count_equipent conta quantas vezes aparece cada equipamento nas descrições dos exercicios, de uma certa categoria, devolvendo o resultado ordenado de forma decrescente
-#em suma, mostra qual é o equipamento que aparece mais vezes numa categoria, por ordem descrescente
 def count_equipment(category):
+    """count_equipent conta quantas vezes aparece cada equipamento nas descrições dos exercicios, de uma certa categoria, devolvendo o resultado ordenado de forma decrescente
+    em suma, mostra qual é o equipamento que aparece mais vezes numa categoria, por ordem descrescente """
     pairs = []
     for word in EQUIPMENT_WORDS:
         total = 0
@@ -152,8 +168,8 @@ def count_equipment(category):
         result.append({pair[1]: pair[0]})
     return result
 
-#available destina-se a devolver um dicionário com todos os exercicios, categorias, equipamentos e músculos que existem, sem repetições
 def available():
+    """available destina-se a devolver um dicionário com todos os exercicios, categorias, equipamentos e músculos que existem, sem repetições."""
     categories = []
     muscles = []
     equipment = []
@@ -174,6 +190,8 @@ def available():
     }
 
 def personal_workout(terms, effort, n):
+    """Cria o plano de treino: para cada músculo ou categoria, filtra pelo tipo de esforço
+    (ou não filtra se for 'any') e guarda os primeiros n exercícios."""
     workout = {}
     for term in terms:
         term = term.strip()
@@ -184,6 +202,7 @@ def personal_workout(terms, effort, n):
     return workout
 
 def export_csv(plan, path):
+    """Escreve o plano num ficheiro CSV e devolve o número de registos exportados."""
     rows = [
         {**ex, "group": group,
          "muscles": ", ".join(ex["muscles"]),
@@ -202,6 +221,8 @@ def export_csv(plan, path):
     return len(rows)
 
 def load_routines():
+    """Vai buscar as routines públicas da wger (precisa de WGER_TOKEN) e guarda em cache.
+    Para cada routine guarda o nome e os ids dos exercícios de cada dia."""
     cache_file = Path("cache_routines.json")
     if cache_file.exists():
         with cache_file.open(encoding="utf-8") as file:
@@ -213,7 +234,7 @@ def load_routines():
         return None
 
     headers = {**HEADERS, "Authorization": f"Token {token}"}
-    routines = {}  # routine id -> {"name": ..., "days": [[exercise ids]]}
+    routines = {}
     url = f"{BASE_URL}/routine/"
     params = {"limit": 100, "is_template": "true", "is_public": "true"}
 
@@ -242,10 +263,12 @@ def load_routines():
     return routines
 
 def exercise_name(exercise_id):
+    """Devolve o nome do exercício, ou o próprio id se não o encontrar."""
     exercise = find_exercise(exercise_id)
     return exercise["translations"][0]["name"] if exercise else str(exercise_id)
 
 def routines_for_exercise(exercise_id):
+    """Devolve as routines que têm este exercício em algum dos dias."""
     return [
         {"id": int(rid), "name": routine["name"]}
         for rid, routine in routine_cache.items()
@@ -253,6 +276,7 @@ def routines_for_exercise(exercise_id):
     ]
     
 def get_routine(routine_id):
+    """Devolve o nome da routine e os exercícios de cada dia, ou None se não existir."""
     routine = routine_cache.get(str(routine_id))
     if routine is None:
         return None
