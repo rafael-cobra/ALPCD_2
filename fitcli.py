@@ -59,5 +59,9 @@ def routine(routine_id: int):
         raise typer.Exit(1)
     show(result)
     
+@app.command()
+def available():
+    show(main.available())
+    
 if __name__ == "__main__":
     app()
