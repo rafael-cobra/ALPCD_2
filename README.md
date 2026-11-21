@@ -178,8 +178,10 @@ Esta função conta menções nas descrições; não conta necessariamente o equ
 
 O comando `workout` pesquisa exercícios para cada músculo indicado, filtra-os pelo tipo de esforço e, opcionalmente, pelo equipamento, e escolhe até N resultados por músculo. Pode mostrar o plano em JSON ou exportá-lo para CSV.
 
-## Contribuições
+## Elementos do Grupo
+|Nome|Número|
+|---|---|
+|Rafael Cobra|a114206|
+|Carla Gonçalves|a17120|
+|Mariana Policarpo|a114300|
 
-- **Carla:** implementação das regras de classificação e das melhorias aos comandos `info` e `workout`; testes manuais do comando `type` para os quatro tipos, de `info` e do filtro de equipamento; revisão dos critérios, das limitações e do README.
-**Mariana:**
-**Rafael:**
