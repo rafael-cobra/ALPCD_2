@@ -19,10 +19,11 @@ COMPOUND_NAME_RE = re.compile(r"\b(deadlifts?|bench[-\s]?press|presses|press|pul
     r"lunges?|squats?|dips?|rows?|rowing|kettlebell swings?)\b")
 COMPOUND_MOVE_RE = re.compile(r"\b(knees and hips|hips and knees)\b")
 
-def clean(text):
-    """Tira as tags HTML e os espaços a mais de um texto e passa tudo para minúsculas."""
-    text = re.sub(r"<[^>]+>", " ", text)
-    return re.sub(r"\s+", " ", text).strip().lower()
+def clean(text, lowercase=True):
+    """Remove HTML e espaços extra; converte para minúsculas por omissão."""
+    text = re.sub(r"<[^>]+>", " ", text or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text.lower() if lowercase else text
 
 def load_data(option):
     """Descarrega todas as páginas da API para a rota indicada (só em inglês) e guarda em cache JSON.
@@ -88,8 +89,7 @@ def exercise_info(exercise_id):
 
     info = summarize(exercise)
     description = exercise["translations"][0].get("description") or ""
-    description = re.sub(r"<[^>]+>", " ", description)
-    info["description"] = re.sub(r"\s+", " ", description).strip()
+    info["description"] = clean(description, lowercase=False)
     return info
 
 def list_last_n(n):
