@@ -177,24 +177,23 @@ def count_equipment(category):
     return result
 
 def available():
-    """available destina-se a devolver um dicionário com todos os exercicios, categorias, equipamentos e músculos que existem, sem repetições."""
-    categories = []
-    muscles = []
-    equipment = []
-    for exercise in cache["results"]:
-        category = exercise["category"]["name"]
-        if category not in categories:
-            categories.append(category)
-        for muscle in get_muscle_names(exercise):
-            if muscle not in muscles:
-                muscles.append(muscle)
-        for item in exercise["equipment"]:
-            if item["name"] not in equipment:
-                equipment.append(item["name"])
-    return{
-        "categories": categories,
-        "muscles": muscles,
-        "equipment": equipment
+    """Devolve categorias, músculos, equipamentos e tipos disponíveis."""
+    return {
+        "categories": sorted({
+            ex["category"]["name"]
+            for ex in cache["results"]
+        }),
+        "muscles": sorted({
+            muscle
+            for ex in cache["results"]
+            for muscle in get_muscle_names(ex)
+        }),
+        "equipment": sorted({
+            item["name"]
+            for ex in cache["results"]
+            for item in ex["equipment"]
+        }),
+        "types": ["cardio", "isolated", "compound", "other"],
     }
 
 def personal_workout(terms, effort, n):
