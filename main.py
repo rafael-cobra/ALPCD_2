@@ -82,6 +82,8 @@ def summarize(exercise):
 
 def list_last_n(n):
     """Devolve os n exercícios mais recentes (os últimos da lista)."""
+    if n < 1:
+        raise ValueError("n must be at least 1")
     return [summarize(exercise) for exercise in cache["results"][-n:]]
 
 def get_muscle_names(exercise):
@@ -98,12 +100,15 @@ def matches(exercise, term):
     )
 
 def search_exercises(term, limit=None):
-    """Pesquisa exercícios por músculo ou categoria e para ao atingir o limite, se existir."""
+    """Pesquisa por músculo ou categoria, opcionalmente limitada a N resultados."""
+    if limit is not None and limit < 1:
+        raise ValueError("limit must be at least 1")
+
     results = []
     for exercise in cache["results"]:
         if matches(exercise, term):
             results.append(summarize(exercise))
-            if limit and len(results) == limit:
+            if limit is not None and len(results) >= limit:
                 break
     return results
 
@@ -195,6 +200,9 @@ def available():
 def personal_workout(terms, effort, n):
     """Cria o plano de treino: para cada músculo ou categoria, filtra pelo tipo de esforço
     (ou não filtra se for 'any') e guarda os primeiros n exercícios."""
+    if n < 1:
+        raise ValueError("n must be at least 1")
+
     workout = {}
     for term in terms:
         term = term.strip()
