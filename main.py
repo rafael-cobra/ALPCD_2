@@ -13,14 +13,17 @@ EQUIPMENT_WORDS = ["barbell", "dumbbell", "cable", "machine", "bodyweight"]
 CARDIO_NAME_RE = re.compile(r"\b(running|run|cycling|jogging|swimming|treadmill|jump rope|rowing machine)\b")
 CARDIO_DESC_RE = re.compile(r"\b(cycling|jogging|swimming|treadmill|jump rope)\b")
 CARDIO_EFFORT_RE = re.compile(r"\b(aerobic|endurance|cardiovascular|heart rate|as fast as you can|for \d+ minutes|short breaks?)\b")
-ISOLATED_RE = re.compile(r"\b(curls?|leg extensions?|knee extensions?|triceps extensions?|lateral raises?|fly|flyes|shrugs?|calf raises?)\b")
-COMPOUND_NAME_RE = re.compile(r"\b(deadlifts?|bench press|presses|press|pull-?ups?|chin-?ups?|push-?ups?|lunges?|squats?|dips?|rows?|rowing)\b")
+ISOLATED_RE = re.compile(r"\b(curls?|hammer[ -]?curls?|leg extensions?|knee extensions?|triceps extensions?|lateral raises?|front raises?|"
+    r"butterfly|butterflies|fly|flyes|shrugs?|calf raises?|hip adductions?)\b")
+COMPOUND_NAME_RE = re.compile(r"\b(deadlifts?|bench[-\s]?press|presses|press|pull[-\s]?ups?|chin[-\s]?ups?|push[-\s]?ups?|"
+    r"lunges?|squats?|dips?|rows?|rowing|kettlebell swings?)\b")
 COMPOUND_MOVE_RE = re.compile(r"\b(knees and hips|hips and knees)\b")
 
-def clean(text):
-    """Tira as tags HTML e os espaços a mais de um texto e passa tudo para minúsculas."""
-    text = re.sub(r"<[^>]+>", " ", text)
-    return re.sub(r"\s+", " ", text).strip().lower()
+def clean(text, lowercase=True):
+    """Remove HTML e espaços extra; converte para minúsculas por omissão."""
+    text = re.sub(r"<[^>]+>", " ", text or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text.lower() if lowercase else text
 
 def load_data(option):
     """Descarrega todas as páginas da API para a rota indicada (só em inglês) e guarda em cache JSON.
@@ -78,8 +81,21 @@ def summarize(exercise):
         "type": classify(exercise),
     }
 
+def exercise_info(exercise_id):
+    """Devolve os detalhes completos de um exercício, ou None se não existir."""
+    exercise = find_exercise(exercise_id)
+    if exercise is None:
+        return None
+
+    info = summarize(exercise)
+    description = exercise["translations"][0].get("description") or ""
+    info["description"] = clean(description, lowercase=False)
+    return info
+
 def list_last_n(n):
     """Devolve os n exercícios mais recentes (os últimos da lista)."""
+    if n < 1:
+        raise ValueError("n must be at least 1")
     return [summarize(exercise) for exercise in cache["results"][-n:]]
 
 def get_muscle_names(exercise):
@@ -96,17 +112,20 @@ def matches(exercise, term):
     )
 
 def search_exercises(term, limit=None):
-    """Pesquisa exercícios por músculo ou categoria e para ao atingir o limite, se existir."""
+    """Pesquisa por músculo ou categoria, opcionalmente limitada a N resultados."""
+    if limit is not None and limit < 1:
+        raise ValueError("limit must be at least 1")
+
     results = []
     for exercise in cache["results"]:
         if matches(exercise, term):
             results.append(summarize(exercise))
-            if limit and len(results) == limit:
+            if limit is not None and len(results) >= limit:
                 break
     return results
 
 def is_cardio(name, description, category):
-    """Verifica com regex se o exercício é de cardio, pelo nome, descrição e categoria."""
+    """Verifica com regex se o exercício é de cardio, pelo nome, descrição ou categoria."""
     return bool(
         CARDIO_NAME_RE.search(name)
         or CARDIO_DESC_RE.search(description)
@@ -118,16 +137,17 @@ def is_isolated(name, description):
     return bool(ISOLATED_RE.search(f"{name} {description}"))
 
 def is_compound(name, description, exercise):
-    """Verifica se o exercício é composto. Os isolados ficam logo de fora.
-    Conta como composto se o nome for típico (squat, press...), se a descrição falar de várias articulações
-    ou se trabalhar 2 ou mais músculos."""
+    """Classifica como composto com uma pista de movimento ou nome reconhecido.
+    O número de músculos só apoia uma pista de movimento; não basta sozinho.
+    """
     if is_isolated(name, description):
         return False
-    return bool(
-        COMPOUND_NAME_RE.search(name)
-        or COMPOUND_MOVE_RE.search(description)
-        or len(get_muscle_names(exercise)) >= 2
-    )
+
+    has_compound_name = bool(COMPOUND_NAME_RE.search(name))
+    has_compound_movement = bool(COMPOUND_MOVE_RE.search(description))
+    has_multiple_muscles = len(get_muscle_names(exercise)) >= 2
+
+    return has_compound_name or (has_compound_movement and has_multiple_muscles)
 
 def classify(exercise):
     """Devolve cardio, isolated, compound ou other, por esta ordem de prioridade."""
@@ -158,7 +178,7 @@ def count_equipment(category):
         for ex in cache["results"]:
             if category.lower() in ex["category"]["name"].lower():
                 text = clean(ex["translations"][0]["description"])
-                total += text.count(word)
+                total += len(re.findall(rf"\b{re.escape(word)}s?\b", text))
         pairs.append([total, word])
 
     pairs.sort(reverse=True)
@@ -169,36 +189,50 @@ def count_equipment(category):
     return result
 
 def available():
-    """available destina-se a devolver um dicionário com todos os exercicios, categorias, equipamentos e músculos que existem, sem repetições."""
-    categories = []
-    muscles = []
-    equipment = []
-    for exercise in cache["results"]:
-        category = exercise["category"]["name"]
-        if category not in categories:
-            categories.append(category)
-        for muscle in get_muscle_names(exercise):
-            if muscle not in muscles:
-                muscles.append(muscle)
-        for item in exercise["equipment"]:
-            if item["name"] not in equipment:
-                equipment.append(item["name"])
-    return{
-        "categories": categories,
-        "muscles": muscles,
-        "equipment": equipment
+    """Devolve categorias, músculos, equipamentos e tipos disponíveis."""
+    return {
+        "categories": sorted({
+            ex["category"]["name"]
+            for ex in cache["results"]
+        }),
+        "muscles": sorted({
+            muscle
+            for ex in cache["results"]
+            for muscle in get_muscle_names(ex)
+        }),
+        "equipment": sorted({
+            item["name"]
+            for ex in cache["results"]
+            for item in ex["equipment"]
+        }),
+        "types": ["cardio", "isolated", "compound", "other"],
     }
 
-def personal_workout(terms, effort, n):
-    """Cria o plano de treino: para cada músculo ou categoria, filtra pelo tipo de esforço
-    (ou não filtra se for 'any') e guarda os primeiros n exercícios."""
+def personal_workout(terms, effort, n, equipment=None):
+    """Cria um plano filtrado por músculo, tipo de esforço e equipamento."""
+    if n < 1:
+        raise ValueError("n must be at least 1")
+
     workout = {}
     for term in terms:
         term = term.strip()
         exercises = search_exercises(term)
+
         if effort != "any":
             exercises = [ex for ex in exercises if ex["type"] == effort]
+
+        if equipment:
+            equipment_term = equipment.lower()
+            exercises = [
+                ex for ex in exercises
+                if any(
+                    equipment_term in item.lower()
+                    for item in ex["equipment"]
+                )
+            ]
+
         workout[term] = exercises[:n]
+
     return workout
 
 def export_csv(plan, path):
@@ -267,26 +301,40 @@ def exercise_name(exercise_id):
     exercise = find_exercise(exercise_id)
     return exercise["translations"][0]["name"] if exercise else str(exercise_id)
 
+routine_cache = None
+
+def get_routine_cache():
+    global routine_cache
+
+    if routine_cache is None:
+        routine_cache = load_routines()
+
+    if routine_cache is None:
+        raise SystemExit("Could not load routines. Check WGER_TOKEN and the API.")
+
+    return routine_cache
+
 def routines_for_exercise(exercise_id):
-    """Devolve as routines que têm este exercício em algum dos dias."""
+    """Devolve as rotinas que têm este exercício em algum dos dias."""
+    routines = get_routine_cache()
     return [
         {"id": int(rid), "name": routine["name"]}
-        for rid, routine in routine_cache.items()
+        for rid, routine in routines.items()
         if any(exercise_id in day for day in routine["days"])
     ]
     
 def get_routine(routine_id):
-    """Devolve o nome da routine e os exercícios de cada dia, ou None se não existir."""
-    routine = routine_cache.get(str(routine_id))
+    """Devolve o nome da rotina e os exercícios de cada dia, ou None se não existir."""
+    routines = get_routine_cache()
+    routine = routines.get(str(routine_id))
     if routine is None:
         return None
     return {
         "name": routine["name"],
         "days": [[exercise_name(i) for i in day] for day in routine["days"]],
-    }          
+    }
 
 cache = load_data("exerciseinfo")
-routine_cache = load_routines()
 
-if cache is None or routine_cache is None:
-    raise SystemExit("Error loading data.")
+if cache is None:
+    raise SystemExit("Error loading exercise data.")
