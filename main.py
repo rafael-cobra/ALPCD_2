@@ -80,6 +80,18 @@ def summarize(exercise):
         "type": classify(exercise),
     }
 
+def exercise_info(exercise_id):
+    """Devolve os detalhes completos de um exercício, ou None se não existir."""
+    exercise = find_exercise(exercise_id)
+    if exercise is None:
+        return None
+
+    info = summarize(exercise)
+    description = exercise["translations"][0].get("description") or ""
+    description = re.sub(r"<[^>]+>", " ", description)
+    info["description"] = re.sub(r"\s+", " ", description).strip()
+    return info
+
 def list_last_n(n):
     """Devolve os n exercícios mais recentes (os últimos da lista)."""
     if n < 1:
@@ -196,9 +208,8 @@ def available():
         "types": ["cardio", "isolated", "compound", "other"],
     }
 
-def personal_workout(terms, effort, n):
-    """Cria o plano de treino: para cada músculo ou categoria, filtra pelo tipo de esforço
-    (ou não filtra se for 'any') e guarda os primeiros n exercícios."""
+def personal_workout(terms, effort, n, equipment=None):
+    """Cria um plano filtrado por músculo, tipo de esforço e equipamento."""
     if n < 1:
         raise ValueError("n must be at least 1")
 
@@ -206,9 +217,22 @@ def personal_workout(terms, effort, n):
     for term in terms:
         term = term.strip()
         exercises = search_exercises(term)
+
         if effort != "any":
             exercises = [ex for ex in exercises if ex["type"] == effort]
+
+        if equipment:
+            equipment_term = equipment.lower()
+            exercises = [
+                ex for ex in exercises
+                if any(
+                    equipment_term in item.lower()
+                    for item in ex["equipment"]
+                )
+            ]
+
         workout[term] = exercises[:n]
+
     return workout
 
 def export_csv(plan, path):
