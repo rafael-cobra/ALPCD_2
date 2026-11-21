@@ -270,26 +270,40 @@ def exercise_name(exercise_id):
     exercise = find_exercise(exercise_id)
     return exercise["translations"][0]["name"] if exercise else str(exercise_id)
 
+routine_cache = None
+
+def get_routine_cache():
+    global routine_cache
+
+    if routine_cache is None:
+        routine_cache = load_routines()
+
+    if routine_cache is None:
+        raise SystemExit("Could not load routines. Check WGER_TOKEN and the API.")
+
+    return routine_cache
+
 def routines_for_exercise(exercise_id):
-    """Devolve as routines que têm este exercício em algum dos dias."""
+    """Devolve as rotinas que têm este exercício em algum dos dias."""
+    routines = get_routine_cache()
     return [
         {"id": int(rid), "name": routine["name"]}
-        for rid, routine in routine_cache.items()
+        for rid, routine in routines.items()
         if any(exercise_id in day for day in routine["days"])
     ]
     
 def get_routine(routine_id):
-    """Devolve o nome da routine e os exercícios de cada dia, ou None se não existir."""
-    routine = routine_cache.get(str(routine_id))
+    """Devolve o nome da rotina e os exercícios de cada dia, ou None se não existir."""
+    routines = get_routine_cache()
+    routine = routines.get(str(routine_id))
     if routine is None:
         return None
     return {
         "name": routine["name"],
         "days": [[exercise_name(i) for i in day] for day in routine["days"]],
-    }          
+    }
 
 cache = load_data("exerciseinfo")
-routine_cache = load_routines()
 
-if cache is None or routine_cache is None:
-    raise SystemExit("Error loading data.")
+if cache is None:
+    raise SystemExit("Error loading exercise data.")
