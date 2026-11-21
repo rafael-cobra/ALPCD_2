@@ -166,7 +166,7 @@ def count_equipment(category):
         for ex in cache["results"]:
             if category.lower() in ex["category"]["name"].lower():
                 text = clean(ex["translations"][0]["description"])
-                total += text.count(word)
+                total += len(re.findall(rf"\b{re.escape(word)}s?\b", text))
         pairs.append([total, word])
 
     pairs.sort(reverse=True)
