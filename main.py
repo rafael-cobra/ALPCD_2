@@ -172,19 +172,19 @@ def extract_type_id(exercise_id):
 def count_equipment(category):
     """count_equipent conta quantas vezes aparece cada equipamento nas descrições dos exercicios, de uma certa categoria, devolvendo o resultado ordenado de forma decrescente
     em suma, mostra qual é o equipamento que aparece mais vezes numa categoria, por ordem descrescente """
-    pairs = []
+    pairs_count = []
     for word in EQUIPMENT_WORDS:
         total = 0
         for ex in cache["results"]:
             if category.lower() in ex["category"]["name"].lower():
                 text = clean(ex["translations"][0]["description"])
-                total += len(re.findall(rf"\b{re.escape(word)}s?\b", text))
-        pairs.append([total, word])
+                total = total + len(re.findall(rf"\b{word}s?\b", text))
+        pairs_count.append([total, word])
 
-    pairs.sort(reverse=True)
+    pairs_count.sort(reverse=True)
 
     result = []
-    for pair in pairs:
+    for pair in pairs_count:
         result.append({pair[1]: pair[0]})
     return result
 
