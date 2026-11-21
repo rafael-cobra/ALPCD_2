@@ -13,8 +13,10 @@ EQUIPMENT_WORDS = ["barbell", "dumbbell", "cable", "machine", "bodyweight"]
 CARDIO_NAME_RE = re.compile(r"\b(running|run|cycling|jogging|swimming|treadmill|jump rope|rowing machine)\b")
 CARDIO_DESC_RE = re.compile(r"\b(cycling|jogging|swimming|treadmill|jump rope)\b")
 CARDIO_EFFORT_RE = re.compile(r"\b(aerobic|endurance|cardiovascular|heart rate|as fast as you can|for \d+ minutes|short breaks?)\b")
-ISOLATED_RE = re.compile(r"\b(curls?|leg extensions?|knee extensions?|triceps extensions?|lateral raises?|fly|flyes|shrugs?|calf raises?)\b")
-COMPOUND_NAME_RE = re.compile(r"\b(deadlifts?|bench press|presses|press|pull-?ups?|chin-?ups?|push-?ups?|lunges?|squats?|dips?|rows?|rowing)\b")
+ISOLATED_RE = re.compile(r"\b(curls?|hammer[ -]?curls?|leg extensions?|knee extensions?|triceps extensions?|lateral raises?|front raises?|"
+    r"butterfly|butterflies|fly|flyes|shrugs?|calf raises?|hip adductions?)\b")
+COMPOUND_NAME_RE = re.compile(r"\b(deadlifts?|bench[-\s]?press|presses|press|pull[-\s]?ups?|chin[-\s]?ups?|push[-\s]?ups?|"
+    r"lunges?|squats?|dips?|rows?|rowing|kettlebell swings?)\b")
 COMPOUND_MOVE_RE = re.compile(r"\b(knees and hips|hips and knees)\b")
 
 def clean(text):
@@ -106,7 +108,7 @@ def search_exercises(term, limit=None):
     return results
 
 def is_cardio(name, description, category):
-    """Verifica com regex se o exercício é de cardio, pelo nome, descrição e categoria."""
+    """Verifica com regex se o exercício é de cardio, pelo nome, descrição ou categoria."""
     return bool(
         CARDIO_NAME_RE.search(name)
         or CARDIO_DESC_RE.search(description)
@@ -118,16 +120,17 @@ def is_isolated(name, description):
     return bool(ISOLATED_RE.search(f"{name} {description}"))
 
 def is_compound(name, description, exercise):
-    """Verifica se o exercício é composto. Os isolados ficam logo de fora.
-    Conta como composto se o nome for típico (squat, press...), se a descrição falar de várias articulações
-    ou se trabalhar 2 ou mais músculos."""
+    """Classifica como composto com uma pista de movimento ou nome reconhecido.
+    O número de músculos só apoia uma pista de movimento; não basta sozinho.
+    """
     if is_isolated(name, description):
         return False
-    return bool(
-        COMPOUND_NAME_RE.search(name)
-        or COMPOUND_MOVE_RE.search(description)
-        or len(get_muscle_names(exercise)) >= 2
-    )
+
+    has_compound_name = bool(COMPOUND_NAME_RE.search(name))
+    has_compound_movement = bool(COMPOUND_MOVE_RE.search(description))
+    has_multiple_muscles = len(get_muscle_names(exercise)) >= 2
+
+    return has_compound_name or (has_compound_movement and has_multiple_muscles)
 
 def classify(exercise):
     """Devolve cardio, isolated, compound ou other, por esta ordem de prioridade."""
