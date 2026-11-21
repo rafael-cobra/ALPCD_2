@@ -1,117 +1,187 @@
 ﻿# fitcli ALPCD_2
-Trabalho prático 1 de ALPCD (2026/2027, Ciência de Dados, Universidade do Minho).
 
-A fitcli é uma CLI que criamos para buscar dados de exercícios físico à API pública wger. Algumas funcionalidades são: pesquisar exercícios por músculo e categoria, ver qual o tipo de esforço, contar ocorrências de equipamentos, gerar um workout, etc.
+Trabalho Prático 1 de ALPCD — Ciência de Dados, Universidade do Minho, 2026/2027.
 
-Utilizamos o 'typer' (CLI), 'requests' (API) e 're' (limpeza de texto e classificação).
+A `fitcli` é uma aplicação de linha de comandos para consultar exercícios da API pública do wger. Permite pesquisar por músculo ou categoria, consultar detalhes e tipo de exercício, contar menções a equipamento e gerar planos de treino.
 
-## Como correr
+O projeto usa `Typer` para criar os comandos, `requests` para consultar a API e expressões regulares (`re`) para limpar e analisar texto.
 
-Necessário ter Python 3.10 ou mais recente.
+## Requisitos
+
+- Python 3.10 ou superior
+- As dependências indicadas em `requirements.txt`
+
+## Instalação
+
+Clona o repositório e entra na pasta:
 
 ```bash
-# 1. clonar o repo e entrar na pasta
-git clone <link-do-repo>
+git clone https://github.com/rafael-cobra/ALPCD_2.git
 cd ALPCD_2
- 
-# 2. criar e ativar o ambiente virtual
+```
+
+Cria e ativa um ambiente virtual.
+
+No Windows, usando PowerShell:
+
+```powershell
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-source .venv/bin/activate     # Linux / Mac
- 
-# 3. instalar as dependências
+.\.venv\Scripts\Activate.ps1
+```
+
+No Windows, usando a Linha de Comandos (CMD):
+
+```bat
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+No Linux ou macOS:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+Instala as dependências:
+
+```bash
 pip install -r requirements.txt
 ```
 
-**Nota sobre o token:** os comandos `routines` e `routine` (os nossos extras) usam o endpoint `/routine/` da wger, que pede um token. Antes de correr, define a variável de ambiente `WGER_TOKEN`:
- 
+## Token para os comandos de rotinas
+
+Os comandos `routines` e `routine` consultam rotinas públicas modelo do wger. Os dados ficam guardados em `cache_routines.json`.
+
+Se esse ficheiro ainda não existir, é necessário definir `WGER_TOKEN` para a aplicação consultar a API. Se o cache já existir, os comandos usam-no sem voltar a consultar a API.
+
+No PowerShell:
+
 ```powershell
-$env:WGER_TOKEN="o_teu_token"      # PowerShell
-```
-```bash
-export WGER_TOKEN="o_teu_token"    # Linux / Mac
+$env:WGER_TOKEN="o_teu_token"
 ```
 
-Na primeira execução da CLI, são descarregados todos os dados da API e guardados em 2 ficheiros cache diferentes (um para o exercício e outro para as routines). Caso queira atualizar os dados, será necessário apagar os ficheiro cache e voltar a executar a CLI.
+No Linux ou macOS:
+
+```bash
+export WGER_TOKEN="o_teu_token"
+```
+
+No CMD:
+
+```bash
+set WGER_TOKEN=o_teu_token
+```
+
+Não coloques o valor real do token no README nem o incluas num commit. Os comandos que consultam exercícios públicos não precisam de `WGER_TOKEN`. O token só é necessário para descarregar as rotinas quando `cache_routines.json` ainda não existe.
+
+## Cache
+
+A aplicação guarda os dados dos exercícios em `cache_exerciseinfo.json` e os dados das rotinas em `cache_routines.json`.
+
+Os comandos normais carregam o cache dos exercícios. As rotinas só são carregadas quando se executa `routine` ou `routines`.
+
+Para atualizar os dados dos exercícios, remove `cache_exerciseinfo.json` e executa novamente um comando normal. Para atualizar as rotinas, remove `cache_routines.json` e executa `routine` ou `routines`. Para descarregar novamente as rotinas, é necessário ter `WGER_TOKEN` definido.
 
 ## Estrutura do projeto
 
-```
+```text
 ALPCD_2/
-├── fitcli.py          # a CLI (comandos do typer)
-├── main.py            # a lógica toda: API, cache, classificação, etc.
-├── requirements.txt
-└── README.md
+├── fitcli.py          # comandos da linha de comandos, definidos com Typer
+├── main.py            # API, cache, pesquisa e classificação
+├── requirements.txt   # dependências Python
+└── README.md          # instruções e documentação
 ```
 
-Separámos assim para a CLI ficar só com a parte de receber argumentos e mostrar resultados, e o `main.py` tratar do resto. Isto também fez com que o `workout` fosse só juntar funções que já existiam.
+A separação permite que `fitcli.py` trate dos argumentos e da apresentação dos resultados, enquanto `main.py` contém a lógica de dados e de negócio.
 
 ## Comandos
 
 | Comando | O que faz |
 |---|---|
-| `top N` | mostra os N exercícios mais recentes |
-| `search TERMO N` | pesquisa por músculo ou categoria, com limite de N resultados |
-| `type ID` | diz se o exercício é `compound`, `isolated`, `cardio` ou `other` |
-| `equipment CATEGORIA` | conta quantas vezes cada equipamento aparece nas descrições dessa categoria |
-| `workout MÚSCULOS ESFORÇO N` | gera um plano de treino (opção `--csv` para exportar) |
-| `available` | lista as categorias, músculos e equipamentos que existem |
-| `routines ID` | (extra) routines que usam um dado exercício |
-| `routine ID` | (extra) mostra uma routine com os nomes dos exercícios |
- 
-Para ver a ajuda de qualquer comando: `python fitcli.py <comando> --help`.
+| `top N` | Mostra os N exercícios mais recentes do cache. |
+| `search TERMO N` | Pesquisa por músculo ou categoria e mostra até N resultados em JSON. |
+| `type ID` | Infere e mostra o tipo do exercício: `cardio`, `isolated`, `compound` ou `other`. |
+| `info ID` | Mostra os detalhes do exercício, incluindo descrição, músculos e equipamento. |
+| `equipment CATEGORIA` | Conta menções a termos de equipamento nas descrições dos exercícios dessa categoria. |
+| `workout MÚSCULOS ESFORÇO N` | Gera um plano com até N exercícios por músculo. Aceita `compound`, `isolated` ou `any`. |
+| `available` | Lista as categorias, os músculos, os equipamentos e os tipos disponíveis. |
+| `routines EXERCISE_ID` | Lista rotinas públicas modelo do cache que incluem o exercício indicado. |
+| `routine ROUTINE_ID` | Mostra o nome de uma rotina e os exercícios de cada dia. |
+
+O comando `workout` também aceita `--equipment NOME` para filtrar pelo equipamento e `--csv FICHEIRO` para exportar o plano. As duas opções podem ser usadas em conjunto.
+
+Para consultar as opções e a descrição de um comando:
+
+```bash
+python fitcli.py NOME_DO_COMANDO --help
+```
+
+Se executares a CLI sem argumentos, é apresentada a lista de comandos e a respetiva ajuda.
 
 ## Exemplos
 
 ```bash
-# os 10 exercícios mais recentes
+# Mostrar os 10 exercícios mais recentes
 python fitcli.py top 10
- 
-# 5 exercícios de bíceps
+
+# Pesquisar até 5 exercícios relacionados com bíceps
 python fitcli.py search biceps 5
- 
-# tipo de esforço do exercício 192
-python fitcli.py type 192
- 
-# equipamento mais mencionado na categoria chest
+
+# Consultar o tipo de um exercício existente no cache
+python fitcli.py type 177
+# Resultado esperado: cardio
+
+# Consultar os detalhes de um exercício
+python fitcli.py info 135
+
+# Contar menções a equipamento nas descrições da categoria chest
 python fitcli.py equipment chest
- 
-# plano com até 5 exercícios compostos de bíceps e costas
+
+# Gerar um plano com até 5 exercícios compostos para bíceps e costas
 python fitcli.py workout biceps,back compound 5
- 
-# plano com 3 exercícios isolados de peito e ombros, exportado para CSV
+
+# Filtrar o plano por halteres
+python fitcli.py workout biceps any 5 --equipment dumbbell
+
+# Gerar um plano de exercícios isolados e exportá-lo para CSV
 python fitcli.py workout chest,shoulders isolated 3 --csv treino.csv
- 
-# ver o que podemos pesquisar
+
+# Consultar as categorias, músculos, equipamentos e tipos disponíveis
 python fitcli.py available
 ```
+
 ## Como funciona
 
-**API:** usamos sempre `language=2` (inglês), um `User-Agent` que identifica o grupo, `raise_for_status()` para apanhar erros e seguimos o campo `next` de cada página até acabar, para ter todos os exercícios e não só os primeiros 100.
- 
-**Cache:** guardamos as respostas em JSON para não estar sempre a chamar a API. É muito mais rápido e é mais simpático para o servidor deles.
- 
-**`type`:** não há nenhum campo na API que diga se um exercício é composto ou isolado, por isso inferimos com regex pelo nome, pela descrição, pela categoria e pelo número de músculos. A ordem é esta:
-1. `cardio`: o nome ou a descrição fala de correr, bicicleta, natação, etc.
-2. `isolated`: aparecem palavras como *curl*, *extension*, *lateral raise*, *calf raise*...
-3. `compound`: aparecem palavras como *squat*, *deadlift*, *press*, *row*, *pull-up*... ou o exercício trabalha 2 ou mais músculos
-4. `other`: tudo o que sobra
+### API
 
-**`equipment`:** limpamos o HTML das descrições com `re`, passamos tudo para minúsculas e contamos quantas vezes aparece cada palavra (`barbell`, `dumbbell`, `cable`, `machine`, `bodyweight`). No fim ordenamos de forma decrescente.
- 
-**`workout`:** para cada músculo da lista chama o `search`, filtra pelo tipo de esforço pedido e fica com os primeiros N.
+A aplicação consulta a API pública do wger. Pede os dados dos exercícios em inglês (`language=2`), envia um `User-Agent` que identifica o projeto e verifica erros HTTP com `raise_for_status()`. Quando a resposta indica que há mais páginas, segue o endereço `next` para recolher os restantes resultados.
 
-## Extras
+### Classificação do tipo de exercício
 
-- `available`: mostra o que dá para pesquisar, para não estarmos a adivinhar nomes de músculos
-- `routines` e `routine`: ligam os exercícios às routines públicas da wger, ou seja, encontras um exercício e vês em que routines ele aparece
+A API não fornece diretamente os quatro tipos usados neste projeto. Por isso, a aplicação infere o tipo através do nome, da descrição, da categoria e dos músculos associados. A classificação segue esta ordem:
 
-## Quem fez o quê
+1. `cardio`: identifica termos de cardio no nome ou na descrição. Também pode usar pistas de esforço aeróbico ou de resistência quando a categoria é cardio.
+2. `isolated`: identifica termos associados a exercícios isolados, como `curl`, `extension`, `lateral raise`, `front raise`, `butterfly` ou `hip adduction`.
+3. `compound`: reconhece certos movimentos pelo nome, como `squat`, `deadlift`, `press`, `row`, `pull-up` e `kettlebell swing`. Também pode usar uma pista de movimento envolvendo joelhos e ancas, se a API associar pelo menos dois músculos.
+4. `other`: aplica-se quando nenhuma das regras anteriores corresponde.
 
-- **Rafael:**
-- **Mariana:** 
-- **Carla:** 
+O número de músculos associado pela API não basta, por si só, para classificar um exercício como `compound`. Estas regras são heurísticas e podem falhar quando os nomes ou as descrições usam formas que ainda não estão contempladas.
 
+### Equipamento
 
+O comando `equipment` limpa o HTML das descrições, converte o texto para minúsculas e conta palavras inteiras como `barbell`, `dumbbell`, `cable`, `machine` e `bodyweight`, incluindo o plural simples. Os resultados são ordenados da contagem mais alta para a mais baixa.
 
+Esta função conta menções nas descrições; não conta necessariamente o equipamento associado ao exercício no campo próprio da API. Já o filtro `workout --equipment` compara o nome indicado com o equipamento associado ao exercício.
+
+### Plano de treino
+
+O comando `workout` pesquisa exercícios para cada músculo indicado, filtra-os pelo tipo de esforço e, opcionalmente, pelo equipamento, e escolhe até N resultados por músculo. Pode mostrar o plano em JSON ou exportá-lo para CSV.
+
+## Elementos do Grupo
+|Nome|Número|
+|---|---|
+|Rafael Cobra|a114206|
+|Carla Gonçalves|a17120|
+|Mariana Policarpo|a114300|
 
