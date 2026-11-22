@@ -329,10 +329,11 @@ def get_routine(routine_id):
     routine = routines.get(str(routine_id))
     if routine is None:
         return None
-    return {
-        "name": routine["name"],
-        "days": [[exercise_name(i) for i in day] for day in routine["days"]],
-    }
+    days = []
+    for day in routine["days"]:
+        exercises = ", ".join(exercise_name(i) for i in day)
+        days.append(f"Day {len(days) + 1}: {exercises}")
+    return {"name": routine["name"], "days": days}
 
 cache = load_data("exerciseinfo")
 
