@@ -70,6 +70,7 @@ def find_exercise(exercise_id):
 
 def summarize(exercise):
     """Devolve só os campos que interessam (id, nome, categoria, músculos, equipamento e tipo)."""
+    description = exercise["translations"][0].get("description") or ""
     return {
         "id": exercise["id"],
         "name": exercise["translations"][0]["name"],
@@ -78,18 +79,13 @@ def summarize(exercise):
         "muscles_secondary": [m["name"] for m in exercise.get("muscles_secondary", [])],
         "equipment": [e["name"] for e in exercise["equipment"]],
         "type": classify(exercise),
+        "description": clean(description, lowercase=False),
     }
 
 def exercise_info(exercise_id):
     """Devolve os detalhes completos de um exercício, ou None se não existir."""
     exercise = find_exercise(exercise_id)
-    if exercise is None:
-        return None
-
-    info = summarize(exercise)
-    description = exercise["translations"][0].get("description") or ""
-    info["description"] = clean(description, lowercase=False)
-    return info
+    return summarize(exercise) if exercise else None
 
 def list_last_n(n):
     """Devolve os n exercícios mais recentes (os últimos da lista)."""
@@ -246,7 +242,7 @@ def export_csv(plan, path):
     with open(path, "w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(
             file,
-            fieldnames=["group", "name", "category", "type", "muscles", "equipment"],
+            fieldnames=["group", "name", "category", "type", "muscles", "equipment", "description"],
             extrasaction="ignore",
         )
         writer.writeheader()
