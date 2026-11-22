@@ -149,6 +149,12 @@ python fitcli.py workout chest,shoulders isolated 3 --csv treino.csv
 
 # Consultar as categorias, músculos, equipamentos e tipos disponíveis
 python fitcli.py available
+
+# Mostra uma rotina e os exercícios de cada dia
+python fitcli.py routines 84
+
+# Lista rotinas públicas modelo que incluem o exercício indicado
+python fitcli.py routine 50305
 ```
 
 ## Como funciona
