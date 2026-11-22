@@ -9,7 +9,6 @@ BASE_URL = "https://wger.de/api/v2"
 LANGUAGE_EN = 2
 HEADERS = {"User-Agent": "fitcli-ALPCD2/1.0 (Projeto Grupo 2, Universidade do Minho)"}
 EQUIPMENT_WORDS = ["barbell", "dumbbell", "cable", "machine", "bodyweight"]
-
 CARDIO_NAME_RE = re.compile(r"\b(running|run|cycling|jogging|swimming|treadmill|jump rope|rowing machine)\b")
 CARDIO_DESC_RE = re.compile(r"\b(cycling|jogging|swimming|treadmill|jump rope)\b")
 CARDIO_EFFORT_RE = re.compile(r"\b(aerobic|endurance|cardiovascular|heart rate|as fast as you can|for \d+ minutes|short breaks?)\b")
